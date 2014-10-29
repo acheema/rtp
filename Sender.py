@@ -19,24 +19,36 @@ class Sender(BasicSender.BasicSender):
         ackPkts = []
         msgIter = self.infile.read(1400)
         msg_type = 'start'
+        next_msg = None
         while not msg_type == 'end':
-            packet = self.make_packet(msg_type,seqnum,msgIter)
-            sentPkts.append(seqnum)
-            self.send(packet)
-            #print "--------------------------------------------------------"
-            print "sent: %s|%d|%s|" % (msg_type, seqnum, msgIter[:5])
-            
-            response = self.receive(.5)
-            #ackPkts.append(int(float(self.split_packet(response)[1])))
-            if self.handle_response(response):
-                next_msg = self.infile.read(1400)
-                msg_type = 'data'
-                if next_msg == "":
-                    msg_type = 'end'
-                msgIter = next_msg
-                seqnum += 1
+            if next_msg != "":
+                packet = self.make_packet(msg_type,seqnum,msgIter)
+                sentPkts.append(seqnum)
+                self.send(packet)
+                #print "--------------------------------------------------------"
+                print "sent: %s|%d|%s|" % (msg_type, seqnum, msgIter[:5])
+                
+                response = self.receive(.5)
+                #ackPkts.append(int(float(self.split_packet(response)[1])))
+                if self.handle_response(response):
+                    next_msg = self.infile.read(1400)
+                    if next_msg == "":
+                        continue
+                    msg_type = 'data'
+                    msgIter = next_msg
+                    seqnum += 1
+                else:
+                    continue
             else:
-                continue
+                msg_type = 'end'
+                packetLast = self.make_packet(msg_type, seqnum, msgIter)
+                self.send(packetLast)
+                print "sent: %s|%d|%s|" % (msg_type, seqnum, msgIter[:5])
+                responseLast= self.receive(.5)
+                if self.handle_response(responseLast):
+                    return
+                else:
+                    continue
         #print sentPkts
         #print ackPkts
         self.infile.close()
